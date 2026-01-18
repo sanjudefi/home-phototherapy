@@ -210,10 +210,13 @@ model Equipment {
   name              String
   modelNumber       String?           @map("model_number")
   serialNumber      String?           @unique @map("serial_number")
-  equipmentType     EquipmentType     @map("equipment_type")
+  manufacturer      String?
+  equipmentType     EquipmentType     @default(RETURNABLE) @map("equipment_type")
   status            EquipmentStatus   @default(AVAILABLE)
   currentLocationCity String?         @map("current_location_city")
   purchaseDate      DateTime?         @map("purchase_date")
+  purchaseCost      Float?            @map("purchase_cost")
+  notes             String?
   createdAt         DateTime          @default(now()) @map("created_at")
   updatedAt         DateTime          @updatedAt @map("updated_at")
 
