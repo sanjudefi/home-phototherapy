@@ -90,3 +90,22 @@ export function calculateFinancials(
     netProfit,
   };
 }
+
+// Alias for calculateFinancials with better parameter naming
+export function calculateCommission(
+  rentalAmount: number,
+  commissionRate: number,
+  shippingCost: number = 0,
+  gstAmount: number = 0,
+  otherExpenses: number = 0
+) {
+  const baseAmount = rentalAmount - shippingCost - otherExpenses - gstAmount;
+  const commission = (baseAmount * commissionRate) / 100;
+  const netProfit = baseAmount - commission;
+
+  return {
+    baseAmount,
+    commission,
+    netProfit,
+  };
+}
