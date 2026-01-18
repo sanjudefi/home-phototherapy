@@ -1,0 +1,363 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  SUB_ADMIN
+  DOCTOR
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum LeadStatus {
+  NEW_LEAD
+  CONTACTED
+  EQUIPMENT_SHIPPED
+  ACTIVE_RENTAL
+  COMPLETED
+  PAYMENT_RECEIVED
+  CANCELLED
+  FAILED
+}
+
+enum EquipmentType {
+  RETURNABLE
+  NON_RETURNABLE
+}
+
+enum EquipmentStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  RETIRED
+}
+
+enum RentalStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SCHEDULED
+  PAID
+  FAILED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  UPI
+  OTHER
+}
+
+enum NotificationType {
+  WHATSAPP
+  SMS
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+// Users table - for authentication
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  passwordHash  String      @map("password_hash")
+  role          Role
+  name          String
+  phone         String
+  city          String?
+  status        UserStatus  @default(ACTIVE)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  doctor        Doctor?
+  auditLogs     AuditLog[]
+  processedPayouts Payout[] @relation("ProcessedBy")
+  approvedForms PatientForm[] @relation("ApprovedBy")
+  settingsUpdates Setting[]
+
+  @@map("users")
+}
+
+// Doctors table
+model Doctor {
+  id                    String          @id @default(cuid())
+  userId                String          @unique @map("user_id")
+  specialization        String?
+  commissionRate        Float           @map("commission_rate") // Percentage (e.g., 15 for 15%)
+  bankName              String?         @map("bank_name")
+  accountNumber         String?         @map("account_number")
+  ifscCode              String?         @map("ifsc_code")
+  accountHolderName     String?         @map("account_holder_name")
+  upiId                 String?         @map("upi_id")
+  preferredPaymentMethod PaymentMethod? @map("preferred_payment_method")
+  registrationDate      DateTime        @default(now()) @map("registration_date")
+  status                UserStatus      @default(ACTIVE)
+
+  // Relations
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leads                 Lead[]
+  commissionHistory     CommissionHistory[]
+  payouts               Payout[]
+
+  @@map("doctors")
+}
+
+// Commission History - track changes to doctor commission rates
+model CommissionHistory {
+  id              String    @id @default(cuid())
+  doctorId        String    @map("doctor_id")
+  commissionRate  Float     @map("commission_rate")
+  effectiveFrom   DateTime  @map("effective_from")
+  effectiveTo     DateTime? @map("effective_to")
+  changedBy       String    @map("changed_by") // Admin user ID
+  changedAt       DateTime  @default(now()) @map("changed_at")
+
+  // Relations
+  doctor          Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("commission_history")
+}
+
+// Leads table
+model Lead {
+  id                String      @id @default(cuid())
+  patientName       String      @map("patient_name")
+  patientPhone      String      @map("patient_phone")
+  patientLocation   String      @map("patient_location")
+  doctorId          String      @map("doctor_id")
+  status            LeadStatus  @default(NEW_LEAD)
+  submissionDate    DateTime    @default(now()) @map("submission_date")
+  formLink          String?     @map("form_link")
+  formCompleted     Boolean     @default(false) @map("form_completed")
+  assignedEquipmentId String?   @map("assigned_equipment_id")
+  notes             String?
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  doctor            Doctor      @relation(fields: [doctorId], references: [id])
+  assignedEquipment Equipment?  @relation(fields: [assignedEquipmentId], references: [id])
+  rental            Rental?
+  patientForm       PatientForm?
+  financial         Financial?
+  notifications     Notification[]
+  statusHistory     LeadStatusHistory[]
+
+  @@map("leads")
+}
+
+// Lead Status History - track all status changes
+model LeadStatusHistory {
+  id          String      @id @default(cuid())
+  leadId      String      @map("lead_id")
+  status      LeadStatus
+  changedBy   String      @map("changed_by") // Admin user ID
+  comment     String?
+  changedAt   DateTime    @default(now()) @map("changed_at")
+
+  // Relations
+  lead        Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("lead_status_history")
+}
+
+// Rentals table
+model Rental {
+  id                String        @id @default(cuid())
+  leadId            String        @unique @map("lead_id")
+  equipmentId       String        @map("equipment_id")
+  startDatetime     DateTime      @map("start_datetime")
+  endDatetime       DateTime?     @map("end_datetime")
+  totalHours        Int?          @map("total_hours")
+  billingIncrement  Int           @map("billing_increment") // 24 or 12 hours
+  extensions        Json?         // Array of extension records
+  status            RentalStatus  @default(ACTIVE)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  lead              Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  equipment         Equipment     @relation(fields: [equipmentId], references: [id])
+
+  @@map("rentals")
+}
+
+// Equipment table
+model Equipment {
+  id                String            @id @default(cuid())
+  name              String
+  modelNumber       String?           @map("model_number")
+  serialNumber      String?           @unique @map("serial_number")
+  equipmentType     EquipmentType     @map("equipment_type")
+  status            EquipmentStatus   @default(AVAILABLE)
+  currentLocationCity String?         @map("current_location_city")
+  purchaseDate      DateTime?         @map("purchase_date")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  assignedLeads     Lead[]
+  rentals           Rental[]
+  history           EquipmentHistory[]
+
+  @@map("equipment")
+}
+
+// Equipment History - track equipment usage
+model EquipmentHistory {
+  id                  String    @id @default(cuid())
+  equipmentId         String    @map("equipment_id")
+  leadId              String?   @map("lead_id")
+  assignedDate        DateTime  @map("assigned_date")
+  returnDate          DateTime? @map("return_date")
+  rentalDurationHours Int?      @map("rental_duration_hours")
+  conditionOnReturn   String?   @map("condition_on_return")
+  notes               String?
+
+  // Relations
+  equipment           Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@map("equipment_history")
+}
+
+// Financials table
+model Financial {
+  id                    String        @id @default(cuid())
+  leadId                String        @unique @map("lead_id")
+  rentalAmount          Float         @map("rental_amount") // Gross revenue
+  shippingCost          Float         @default(0) @map("shipping_cost")
+  otherExpenses         Json?         @map("other_expenses") // Array of {description, amount}
+  gstAmount             Float         @default(0) @map("gst_amount")
+  baseAmount            Float         @map("base_amount") // Calculated
+  commissionRateApplied Float         @map("commission_rate_applied")
+  doctorCommission      Float         @map("doctor_commission") // Calculated
+  netProfit             Float         @map("net_profit") // Calculated
+  paymentReceivedDate   DateTime?     @map("payment_received_date")
+  paymentStatus         PaymentStatus @default(PENDING)
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  lead                  Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("financials")
+}
+
+// Payouts table
+model Payout {
+  id                String        @id @default(cuid())
+  doctorId          String        @map("doctor_id")
+  payoutPeriodStart DateTime      @map("payout_period_start")
+  payoutPeriodEnd   DateTime      @map("payout_period_end")
+  totalAmount       Float         @map("total_amount")
+  includedLeads     Json          @map("included_leads") // Array of lead IDs and amounts
+  paymentMethod     PaymentMethod @map("payment_method")
+  paymentDate       DateTime?     @map("payment_date")
+  receiptFilePath   String?       @map("receipt_file_path")
+  status            PaymentStatus @default(PENDING)
+  processedBy       String?       @map("processed_by") // Admin user ID
+  notes             String?
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  doctor            Doctor        @relation(fields: [doctorId], references: [id])
+  processedByUser   User?         @relation("ProcessedBy", fields: [processedBy], references: [id])
+
+  @@map("payouts")
+}
+
+// Notifications table
+model Notification {
+  id              String              @id @default(cuid())
+  recipientType   String              @map("recipient_type") // "doctor" or "patient"
+  recipientId     String              @map("recipient_id") // phone number or user ID
+  messageType     NotificationType    @map("message_type")
+  messageTemplate String?             @map("message_template")
+  messageContent  String              @map("message_content")
+  sentAt          DateTime?           @map("sent_at")
+  deliveryStatus  NotificationStatus  @default(PENDING) @map("delivery_status")
+  relatedEntityType String?           @map("related_entity_type") // "lead", "payout", etc.
+  relatedEntityId   String?           @map("related_entity_id")
+  leadId          String?             @map("lead_id")
+  errorMessage    String?             @map("error_message")
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  // Relations
+  lead            Lead?               @relation(fields: [leadId], references: [id])
+
+  @@map("notifications")
+}
+
+// Patient Forms table
+model PatientForm {
+  id                String    @id @default(cuid())
+  leadId            String    @unique @map("lead_id")
+  formData          Json      @map("form_data") // Complete form responses
+  submittedAt       DateTime? @map("submitted_at")
+  eligibilityStatus String?   @map("eligibility_status")
+  riskAssessment    String?   @map("risk_assessment")
+  approvedBy        String?   @map("approved_by") // Admin user ID
+  approvalDate      DateTime? @map("approval_date")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  lead              Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  approvedByUser    User?     @relation("ApprovedBy", fields: [approvedBy], references: [id])
+
+  @@map("patient_forms")
+}
+
+// Settings table
+model Setting {
+  id          String   @id @default(cuid())
+  settingKey  String   @unique @map("setting_key")
+  settingValue Json    @map("setting_value")
+  updatedBy   String   @map("updated_by") // Admin user ID
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  updatedByUser User   @relation(fields: [updatedBy], references: [id])
+
+  @@map("settings")
+}
+
+// Audit Logs table
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  changes    Json?    // Record of what changed
+  ipAddress  String?  @map("ip_address")
+  timestamp  DateTime @default(now())
+
+  // Relations
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
