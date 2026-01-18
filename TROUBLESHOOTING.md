@@ -6,17 +6,20 @@ Common issues and solutions for the Home Phototherapy Management System.
 
 **Issue**: Page shows "ERR_TOO_MANY_REDIRECTS" or "redirected you too many times"
 
-**Status**: ✅ **FIXED** in latest commit (0152a5c)
+**Status**: ✅ **FIXED** in latest commit (0c54e09)
 
 ### What Was Wrong
 
-The middleware had a logic bug where it checked if routes start with "/" to determine if they're public. Since ALL routes start with "/", this created an infinite redirect loop.
+The issue was using NextAuth's `auth()` middleware wrapper, which conflicts with Vercel's Edge Runtime and causes infinite redirect loops on production deployments.
 
 ### What Was Fixed
 
-1. **Middleware routing logic** - Changed to exact route matching
-2. **Early returns** - Public routes now return immediately
-3. **Auth configuration** - Added `trustHost: true` for Vercel compatibility
+**Commit 0c54e09** - Complete middleware rewrite:
+1. **Removed NextAuth middleware wrapper** - No longer using `auth()` in middleware
+2. **Simplified to basic middleware** - Just route filtering now
+3. **Auth moved to pages** - Each page handles its own auth checks
+4. **Size reduced** - Middleware went from 153 kB to 34 kB
+5. **Better Vercel compatibility** - Works perfectly with Edge Runtime
 
 ### Verify The Fix
 
@@ -345,9 +348,9 @@ None at the moment! 🎉
 
 ### Recently Fixed
 
-- ✅ **ERR_TOO_MANY_REDIRECTS** - Fixed in commit 0152a5c
+- ✅ **ERR_TOO_MANY_REDIRECTS** - FINAL FIX in commit 0c54e09 (removed NextAuth middleware wrapper)
 - ✅ **Build TypeScript errors** - Fixed in commit 8928851
-- ✅ **Middleware redirect loop** - Fixed in commit 0152a5c
+- ✅ **NextAuth/Vercel Edge Runtime conflict** - Fixed in commit 0c54e09
 
 ---
 
