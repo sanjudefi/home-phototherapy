@@ -17,7 +17,7 @@ export function formatCurrency(amount: number): string {
 // Format date
 export function formatDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateFormat('en-IN', {
+  return new Intl.DateTimeFormat('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -27,7 +27,7 @@ export function formatDate(date: Date | string): string {
 // Format date with time
 export function formatDateTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateFormat('en-IN', {
+  return new Intl.DateTimeFormat('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

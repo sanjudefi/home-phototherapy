@@ -5,6 +5,22 @@ interface TableProps extends React.TableHTMLAttributes<HTMLTableElement> {
   children: React.ReactNode;
 }
 
+interface TableSectionProps extends React.HTMLAttributes<HTMLTableSectionElement> {
+  children: React.ReactNode;
+}
+
+interface TableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {
+  children: React.ReactNode;
+}
+
+interface TableCellProps extends React.TdHTMLAttributes<HTMLTableCellElement> {
+  children: React.ReactNode;
+}
+
+interface TableHeaderCellProps extends React.ThHTMLAttributes<HTMLTableHeaderCellElement> {
+  children: React.ReactNode;
+}
+
 export const Table: React.FC<TableProps> = ({ children, className, ...props }) => {
   return (
     <div className="overflow-x-auto">
@@ -18,7 +34,7 @@ export const Table: React.FC<TableProps> = ({ children, className, ...props }) =
   );
 };
 
-export const TableHeader: React.FC<TableProps> = ({ children, className, ...props }) => {
+export const TableHeader: React.FC<TableSectionProps> = ({ children, className, ...props }) => {
   return (
     <thead className={cn("bg-gray-50", className)} {...props}>
       {children}
@@ -26,7 +42,7 @@ export const TableHeader: React.FC<TableProps> = ({ children, className, ...prop
   );
 };
 
-export const TableBody: React.FC<TableProps> = ({ children, className, ...props }) => {
+export const TableBody: React.FC<TableSectionProps> = ({ children, className, ...props }) => {
   return (
     <tbody className={cn("bg-white divide-y divide-gray-200", className)} {...props}>
       {children}
@@ -34,7 +50,7 @@ export const TableBody: React.FC<TableProps> = ({ children, className, ...props 
   );
 };
 
-export const TableRow: React.FC<TableProps> = ({ children, className, ...props }) => {
+export const TableRow: React.FC<TableRowProps> = ({ children, className, ...props }) => {
   return (
     <tr className={cn("hover:bg-gray-50 transition-colors", className)} {...props}>
       {children}
@@ -42,11 +58,7 @@ export const TableRow: React.FC<TableProps> = ({ children, className, ...props }
   );
 };
 
-interface TableCellProps extends React.TdHTMLAttributes<HTMLTableCellElement> {
-  children: React.ReactNode;
-}
-
-export const TableHead: React.FC<TableCellProps> = ({ children, className, ...props }) => {
+export const TableHead: React.FC<TableHeaderCellProps> = ({ children, className, ...props }) => {
   return (
     <th
       className={cn(

@@ -19,7 +19,11 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header user={session.user} />
+      <Header user={{
+        name: session.user.name || 'Admin',
+        email: session.user.email || '',
+        role: session.user.role,
+      }} />
       <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
