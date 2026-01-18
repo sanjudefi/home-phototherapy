@@ -105,15 +105,21 @@ model Doctor {
   id                    String          @id @default(cuid())
   userId                String          @unique @map("user_id")
   specialization        String?
-  commissionRate        Float           @map("commission_rate") // Percentage (e.g., 15 for 15%)
+  clinicName            String?         @map("clinic_name")
+  phone                 String?
+  city                  String?
+  commissionRate        Float           @default(0) @map("commission_rate") // Percentage (e.g., 15 for 15%)
   bankName              String?         @map("bank_name")
   accountNumber         String?         @map("account_number")
   ifscCode              String?         @map("ifsc_code")
   accountHolderName     String?         @map("account_holder_name")
   upiId                 String?         @map("upi_id")
   preferredPaymentMethod PaymentMethod? @map("preferred_payment_method")
+  notes                 String?
   registrationDate      DateTime        @default(now()) @map("registration_date")
   status                UserStatus      @default(ACTIVE)
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
 
   // Relations
   user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -128,11 +134,12 @@ model Doctor {
 model CommissionHistory {
   id              String    @id @default(cuid())
   doctorId        String    @map("doctor_id")
-  commissionRate  Float     @map("commission_rate")
-  effectiveFrom   DateTime  @map("effective_from")
-  effectiveTo     DateTime? @map("effective_to")
+  oldRate         Float     @map("old_rate")
+  newRate         Float     @map("new_rate")
+  effectiveDate   DateTime  @default(now()) @map("effective_date")
   changedBy       String    @map("changed_by") // Admin user ID
-  changedAt       DateTime  @default(now()) @map("changed_at")
+  reason          String?
+  createdAt       DateTime  @default(now()) @map("created_at")
 
   // Relations
   doctor          Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
