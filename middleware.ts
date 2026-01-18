@@ -6,24 +6,36 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const userRole = req.auth?.user?.role;
 
-  // Public routes
-  const publicRoutes = ["/", "/doctor/register", "/patient/form"];
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+  // Public routes that don't require authentication
+  const publicRoutes = ["/doctor/register"];
+  const isPublicRoute = publicRoutes.some(route => pathname === route || pathname.startsWith(route + "/"));
 
-  // Auth routes
-  const authRoutes = ["/admin/login", "/doctor/login"];
-  const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
+  // Patient form routes (dynamic, starts with /patient/form)
+  const isPatientForm = pathname.startsWith("/patient/form");
 
-  // Redirect logged-in users away from auth pages
-  if (isAuthRoute && isLoggedIn) {
-    if (userRole === "DOCTOR") {
-      return NextResponse.redirect(new URL("/doctor/dashboard", req.url));
-    }
-    return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+  // Allow public routes and patient forms
+  if (isPublicRoute || isPatientForm || pathname === "/") {
+    return NextResponse.next();
   }
 
-  // Protect admin routes
-  if (pathname.startsWith("/admin")) {
+  // Auth routes (login pages)
+  const isAdminLogin = pathname === "/admin/login";
+  const isDoctorLogin = pathname === "/doctor/login";
+
+  // Redirect logged-in users away from login pages
+  if (isLoggedIn) {
+    if (isAdminLogin || isDoctorLogin) {
+      if (userRole === "DOCTOR") {
+        return NextResponse.redirect(new URL("/doctor/dashboard", req.url));
+      }
+      if (userRole === "SUPER_ADMIN" || userRole === "SUB_ADMIN") {
+        return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+      }
+    }
+  }
+
+  // Protect admin routes (except login)
+  if (pathname.startsWith("/admin") && !isAdminLogin) {
     if (!isLoggedIn) {
       return NextResponse.redirect(new URL("/admin/login", req.url));
     }
@@ -32,8 +44,8 @@ export default auth((req) => {
     }
   }
 
-  // Protect doctor routes
-  if (pathname.startsWith("/doctor") && !pathname.startsWith("/doctor/login") && !pathname.startsWith("/doctor/register")) {
+  // Protect doctor routes (except login and register)
+  if (pathname.startsWith("/doctor") && !isDoctorLogin && !pathname.startsWith("/doctor/register")) {
     if (!isLoggedIn) {
       return NextResponse.redirect(new URL("/doctor/login", req.url));
     }
@@ -46,5 +58,14 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
 };
