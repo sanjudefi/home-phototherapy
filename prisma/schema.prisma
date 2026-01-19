@@ -165,7 +165,9 @@ model CommissionHistory {
 // Leads table
 model Lead {
   id                String      @id @default(cuid())
-  patientName       String      @map("patient_name")
+  patientName       String      @map("patient_name") // Baby's name
+  parentName        String?     @map("parent_name") // Parent/Guardian name
+  parentEmail       String?     @map("parent_email") // Parent contact email
   patientPhone      String      @map("patient_phone")
   patientLocation   String      @map("patient_location")
   city              String?     // City where the lead is from

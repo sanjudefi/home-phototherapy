@@ -17,12 +17,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { patientName, patientPhone, patientLocation, notes } = body;
+    const { patientName, parentName, parentEmail, patientPhone, patientLocation, city, notes } = body;
 
     // Validate required fields
-    if (!patientName || !patientPhone || !patientLocation) {
+    if (!patientName || !parentName || !parentEmail || !patientPhone || !patientLocation || !city) {
       return NextResponse.json(
-        { error: "Patient name, phone, and location are required" },
+        { error: "Baby name, parent name, parent email, phone, location, and city are required" },
         { status: 400 }
       );
     }
@@ -31,8 +31,11 @@ export async function POST(request: NextRequest) {
     const lead = await prisma.lead.create({
       data: {
         patientName,
+        parentName,
+        parentEmail,
         patientPhone,
         patientLocation,
+        city,
         notes: notes || null,
         doctorId: session.user.doctorId,
         status: LeadStatus.NEW_LEAD,
