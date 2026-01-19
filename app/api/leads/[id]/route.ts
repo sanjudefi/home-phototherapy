@@ -71,10 +71,14 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { status, notes, assignedEquipmentId } = body;
+    const { status, notes, assignedEquipmentId, daysUsed, shippingCost } = body;
 
     const lead = await prisma.lead.findUnique({
       where: { id },
+      include: {
+        doctor: true,
+        assignedEquipment: true,
+      },
     });
 
     if (!lead) {
@@ -126,6 +130,120 @@ export async function PATCH(
         assignedEquipment: true,
       },
     });
+
+    // Handle financial calculations when closing a lead
+    if ((status === "COMPLETED" || status === "PAYMENT_RECEIVED") && daysUsed) {
+      if (!lead.assignedEquipment) {
+        return NextResponse.json(
+          { error: "Cannot close lead without assigned equipment" },
+          { status: 400 }
+        );
+      }
+
+      if (!lead.city) {
+        return NextResponse.json(
+          { error: "Cannot close lead without city information" },
+          { status: 400 }
+        );
+      }
+
+      // Get the city ID from city name
+      const city = await prisma.city.findFirst({
+        where: { name: lead.city },
+      });
+
+      if (!city) {
+        return NextResponse.json(
+          { error: `City "${lead.city}" not found in the system` },
+          { status: 404 }
+        );
+      }
+
+      // Get the rental price for this equipment in this city
+      const rentalPrice = await prisma.equipmentRentalPrice.findUnique({
+        where: {
+          equipmentId_cityId: {
+            equipmentId: lead.assignedEquipment.id,
+            cityId: city.id,
+          },
+        },
+      });
+
+      if (!rentalPrice) {
+        return NextResponse.json(
+          { error: `No rental price set for ${lead.assignedEquipment.name} in ${lead.city}` },
+          { status: 404 }
+        );
+      }
+
+      // Calculate rental amount = days × price per day
+      const rentalAmount = daysUsed * rentalPrice.pricePerDay;
+      const shipping = shippingCost || 0;
+
+      // Calculate base amount (rental + shipping)
+      const baseAmount = rentalAmount + shipping;
+
+      // Calculate GST (18%)
+      const gstAmount = baseAmount * 0.18;
+
+      // Calculate doctor commission
+      const doctorCommission = rentalAmount * (lead.doctor.commissionRate / 100);
+
+      // Calculate net profit = rental - commission
+      const netProfit = rentalAmount - doctorCommission;
+
+      // Create or update rental record
+      await prisma.rental.upsert({
+        where: { leadId: id },
+        create: {
+          leadId: id,
+          equipmentId: lead.assignedEquipment.id,
+          startDatetime: new Date(), // Set appropriate start date if available
+          daysUsed: daysUsed,
+          billingIncrement: 24, // Default to 24 hours
+          status: "COMPLETED",
+        },
+        update: {
+          daysUsed: daysUsed,
+          endDatetime: new Date(),
+          status: "COMPLETED",
+        },
+      });
+
+      // Create or update financial record
+      await prisma.financial.upsert({
+        where: { leadId: id },
+        create: {
+          leadId: id,
+          rentalAmount: rentalAmount,
+          shippingCost: shipping,
+          gstAmount: gstAmount,
+          baseAmount: baseAmount,
+          commissionRateApplied: lead.doctor.commissionRate,
+          doctorCommission: doctorCommission,
+          netProfit: netProfit,
+          paymentStatus: status === "PAYMENT_RECEIVED" ? "PAID" : "PENDING",
+        },
+        update: {
+          rentalAmount: rentalAmount,
+          shippingCost: shipping,
+          gstAmount: gstAmount,
+          baseAmount: baseAmount,
+          commissionRateApplied: lead.doctor.commissionRate,
+          doctorCommission: doctorCommission,
+          netProfit: netProfit,
+          paymentStatus: status === "PAYMENT_RECEIVED" ? "PAID" : "PENDING",
+        },
+      });
+
+      // Set equipment back to available if returnable
+      if (lead.assignedEquipment.equipmentType === "RETURNABLE") {
+        await prisma.equipment.update({
+          where: { id: lead.assignedEquipment.id },
+          data: { status: "AVAILABLE" },
+        });
+      }
+    }
 
     // TODO: Send notification to doctor about status change
 

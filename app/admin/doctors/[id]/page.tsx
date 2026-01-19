@@ -41,6 +41,11 @@ export default async function DoctorDetail({
           createdAt: "desc",
         },
       },
+      payouts: {
+        orderBy: {
+          createdAt: "desc",
+        },
+      },
       commissionHistory: {
         orderBy: {
           effectiveDate: "desc",
@@ -57,25 +62,35 @@ export default async function DoctorDetail({
   // Calculate statistics
   const totalLeads = doctorData.leads.length;
   const completedLeads = doctorData.leads.filter(
-    (lead) => lead.status === "COMPLETED"
+    (lead) => lead.status === "COMPLETED" || lead.status === "PAYMENT_RECEIVED"
   ).length;
   const activeLeads = doctorData.leads.filter(
     (lead) => lead.status === "ACTIVE_RENTAL" || lead.status === "EQUIPMENT_SHIPPED"
   ).length;
 
-  // Calculate total earnings
-  const totalEarnings = doctorData.leads.reduce((sum, lead) => {
+  // Calculate total commission earned from all closed leads
+  const totalCommission = doctorData.leads.reduce((sum, lead) => {
     if (lead.financial && lead.financial.doctorCommission) {
       return sum + lead.financial.doctorCommission;
     }
     return sum;
   }, 0);
 
+  // Calculate total payouts received (PAID status only)
+  const totalPayoutsReceived = doctorData.payouts
+    .filter((payout) => payout.status === "PAID")
+    .reduce((sum, payout) => sum + payout.amount, 0);
+
+  // Calculate pending commission
+  const pendingCommission = totalCommission - totalPayoutsReceived;
+
   const stats = {
     totalLeads,
     completedLeads,
     activeLeads,
-    totalEarnings,
+    totalCommission,
+    totalPayoutsReceived,
+    pendingCommission,
   };
 
   const doctor = {
@@ -96,7 +111,7 @@ export default async function DoctorDetail({
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-gray-900">{doctor.stats.totalLeads}</div>
@@ -112,18 +127,48 @@ export default async function DoctorDetail({
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-green-600">{doctor.stats.completedLeads}</div>
-            <div className="text-sm text-gray-500">Completed</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(doctor.stats.totalEarnings)}
-            </div>
-            <div className="text-sm text-gray-500">Total Earnings</div>
+            <div className="text-sm text-gray-500">Completed Leads</div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Commission & Payout Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Commission & Payout Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="text-sm text-blue-600 font-medium mb-1">Total Commission Earned</div>
+              <div className="text-3xl font-bold text-blue-900">
+                {formatCurrency(doctor.stats.totalCommission)}
+              </div>
+              <div className="text-xs text-blue-600 mt-2">
+                From {doctor.stats.completedLeads} completed leads
+              </div>
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="text-sm text-green-600 font-medium mb-1">Payouts Received</div>
+              <div className="text-3xl font-bold text-green-900">
+                {formatCurrency(doctor.stats.totalPayoutsReceived)}
+              </div>
+              <div className="text-xs text-green-600 mt-2">
+                {doctorData.payouts.filter(p => p.status === "PAID").length} payouts completed
+              </div>
+            </div>
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="text-sm text-orange-600 font-medium mb-1">Pending Commission</div>
+              <div className="text-3xl font-bold text-orange-900">
+                {formatCurrency(doctor.stats.pendingCommission)}
+              </div>
+              <div className="text-xs text-orange-600 mt-2">
+                Awaiting payout
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Doctor Information */}
       <Card>
@@ -214,6 +259,59 @@ export default async function DoctorDetail({
           </CardContent>
         </Card>
       )}
+
+      {/* Recent Payouts */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Payout History</CardTitle>
+            <Link href={`/admin/payouts?doctor=${doctor.id}`}>
+              <Button variant="outline" size="sm">
+                View All
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {doctorData.payouts.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No payouts yet</p>
+          ) : (
+            <div className="space-y-3">
+              {doctorData.payouts.slice(0, 5).map((payout: any) => (
+                <div
+                  key={payout.id}
+                  className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900">
+                          {formatCurrency(payout.amount)}
+                        </p>
+                        <StatusBadge status={payout.status} />
+                      </div>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Period: {formatDate(payout.periodStart)} - {formatDate(payout.periodEnd)}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Created: {formatDate(payout.createdAt)}
+                      </p>
+                      {payout.notes && (
+                        <p className="text-xs text-gray-600 mt-2 italic">{payout.notes}</p>
+                      )}
+                    </div>
+                    <Link href={`/admin/payouts/${payout.id}`}>
+                      <Button variant="outline" size="sm">
+                        View
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Recent Leads */}
       <Card>

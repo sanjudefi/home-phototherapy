@@ -214,6 +214,7 @@ model Rental {
   startDatetime     DateTime      @map("start_datetime")
   endDatetime       DateTime?     @map("end_datetime")
   totalHours        Int?          @map("total_hours")
+  daysUsed          Int?          @map("days_used") // Number of days equipment was used
   billingIncrement  Int           @map("billing_increment") // 24 or 12 hours
   extensions        Json?         // Array of extension records
   status            RentalStatus  @default(ACTIVE)

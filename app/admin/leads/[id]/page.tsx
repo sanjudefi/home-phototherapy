@@ -237,6 +237,7 @@ export default async function AdminLeadDetail({
                 currentStatus={lead.status}
                 currentEquipmentId={lead.assignedEquipmentId}
                 availableEquipment={availableEquipment}
+                leadCity={lead.city}
               />
             </CardContent>
           </Card>

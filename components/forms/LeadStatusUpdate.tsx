@@ -4,12 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
+import { Input } from "@/components/ui/Input";
 
 interface LeadStatusUpdateProps {
   leadId: string;
   currentStatus: string;
   currentEquipmentId: string | null;
   availableEquipment: Array<{ id: string; name: string }>;
+  leadCity?: string | null;
 }
 
 const statusOptions = [
@@ -28,6 +30,7 @@ export function LeadStatusUpdate({
   currentStatus,
   currentEquipmentId,
   availableEquipment,
+  leadCity,
 }: LeadStatusUpdateProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -38,14 +41,19 @@ export function LeadStatusUpdate({
     status: currentStatus,
     assignedEquipmentId: currentEquipmentId || "",
     notes: "",
+    daysUsed: "",
+    shippingCost: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLTextAreaElement | HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
   };
+
+  // Check if status is being changed to COMPLETED or PAYMENT_RECEIVED
+  const isClosingLead = formData.status === "COMPLETED" || formData.status === "PAYMENT_RECEIVED";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,16 +62,29 @@ export function LeadStatusUpdate({
     setIsLoading(true);
 
     try {
+      // Validate that if status is COMPLETED/PAYMENT_RECEIVED, daysUsed must be provided
+      if (isClosingLead && !formData.daysUsed) {
+        throw new Error("Please enter the number of days the equipment was used");
+      }
+
+      const payload: any = {
+        status: formData.status,
+        notes: formData.notes || null,
+        assignedEquipmentId: formData.assignedEquipmentId || null,
+      };
+
+      // Include financial data if closing the lead
+      if (isClosingLead) {
+        payload.daysUsed = parseInt(formData.daysUsed);
+        payload.shippingCost = formData.shippingCost ? parseFloat(formData.shippingCost) : 0;
+      }
+
       const response = await fetch(`/api/leads/${leadId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          status: formData.status,
-          notes: formData.notes || null,
-          assignedEquipmentId: formData.assignedEquipmentId || null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -73,7 +94,7 @@ export function LeadStatusUpdate({
       }
 
       setSuccess(true);
-      setFormData({ ...formData, notes: "" });
+      setFormData({ ...formData, notes: "", daysUsed: "", shippingCost: "" });
 
       // Refresh the page to show updated data
       router.refresh();
@@ -126,6 +147,46 @@ export function LeadStatusUpdate({
         onChange={handleChange}
         disabled={isLoading}
       />
+
+      {/* Show additional fields when closing a lead */}
+      {isClosingLead && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-4">
+          <p className="text-sm font-medium text-yellow-800">
+            📋 Complete Rental Information
+          </p>
+
+          <Input
+            name="daysUsed"
+            label="Days Used"
+            type="number"
+            min="1"
+            placeholder="e.g., 3"
+            value={formData.daysUsed}
+            onChange={handleChange}
+            disabled={isLoading}
+            required={isClosingLead}
+          />
+
+          <Input
+            name="shippingCost"
+            label="Shipping Cost (₹)"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="e.g., 500"
+            value={formData.shippingCost}
+            onChange={handleChange}
+            disabled={isLoading}
+          />
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-800">
+            <p className="font-medium mb-1">💡 Auto-calculation:</p>
+            <p>• Rental amount will be calculated based on days used × city-specific equipment price</p>
+            <p>• Doctor commission will be calculated automatically based on their commission rate</p>
+            <p>• Financial records will be created with all details</p>
+          </div>
+        </div>
+      )}
 
       <div className="w-full">
         <label className="block text-sm font-medium text-gray-700 mb-1">
