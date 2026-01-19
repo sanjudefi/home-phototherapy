@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -20,8 +20,26 @@ export default function DoctorRegister() {
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [cities, setCities] = useState<Array<{ id: string; name: string }>>([]);
+  const [citiesLoading, setCitiesLoading] = useState(true);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        const response = await fetch("/api/cities?activeOnly=true");
+        const data = await response.json();
+        setCities(data.cities || []);
+      } catch (error) {
+        console.error("Error fetching cities:", error);
+      } finally {
+        setCitiesLoading(false);
+      }
+    };
+
+    fetchCities();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
@@ -126,16 +144,29 @@ export default function DoctorRegister() {
                   maxLength={10}
                 />
 
-                <Input
-                  type="text"
-                  name="city"
-                  label="City"
-                  placeholder="Mumbai"
-                  value={formData.city}
-                  onChange={handleChange}
-                  required
-                  disabled={isLoading}
-                />
+                <div>
+                  <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+                    City *
+                  </label>
+                  <select
+                    id="city"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleChange}
+                    required
+                    disabled={isLoading || citiesLoading}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">
+                      {citiesLoading ? "Loading cities..." : "Select a city"}
+                    </option>
+                    {cities.map((city) => (
+                      <option key={city.id} value={city.name}>
+                        {city.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <Input
