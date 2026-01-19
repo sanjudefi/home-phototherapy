@@ -53,6 +53,9 @@ export const Header: React.FC<HeaderProps> = ({ user }) => {
                   <NavLink href="/admin/payouts" active={pathname.startsWith("/admin/payouts")}>
                     Payouts
                   </NavLink>
+                  <NavLink href="/admin/cities" active={pathname.startsWith("/admin/cities")}>
+                    Cities
+                  </NavLink>
                 </>
               ) : (
                 <>
