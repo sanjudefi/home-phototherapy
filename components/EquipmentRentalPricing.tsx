@@ -12,6 +12,8 @@ interface RentalPrice {
   cityId: string;
   cityName: string;
   pricePerDay: number;
+  quantity: number;
+  quantityInUse: number;
 }
 
 interface City {
@@ -38,6 +40,7 @@ export function EquipmentRentalPricing({
   const [newPrice, setNewPrice] = useState({
     cityId: "",
     pricePerDay: "",
+    quantity: "1",
   });
 
   const [editPrice, setEditPrice] = useState<{ [key: string]: string }>({});
@@ -63,8 +66,8 @@ export function EquipmentRentalPricing({
   );
 
   const handleAddPrice = async () => {
-    if (!newPrice.cityId || !newPrice.pricePerDay) {
-      toast.error("Please select a city and enter price");
+    if (!newPrice.cityId || !newPrice.pricePerDay || !newPrice.quantity) {
+      toast.error("Please select a city and enter price and quantity");
       return;
     }
 
@@ -78,6 +81,7 @@ export function EquipmentRentalPricing({
         body: JSON.stringify({
           cityId: newPrice.cityId,
           pricePerDay: parseFloat(newPrice.pricePerDay),
+          quantity: parseInt(newPrice.quantity),
         }),
       });
 
@@ -88,7 +92,7 @@ export function EquipmentRentalPricing({
 
       const data = await response.json();
       setRentalPrices([...rentalPrices, data.rentalPrice]);
-      setNewPrice({ cityId: "", pricePerDay: "" });
+      setNewPrice({ cityId: "", pricePerDay: "", quantity: "1" });
       setIsAdding(false);
       toast.success("Rental price added successfully");
       router.refresh();
@@ -192,49 +196,69 @@ export function EquipmentRentalPricing({
         {isAdding && (
           <div className="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
             <h4 className="text-sm font-medium text-gray-700 mb-3">Add New City Price</h4>
-            <div className="flex gap-3">
-              <select
-                value={newPrice.cityId}
-                onChange={(e) => setNewPrice({ ...newPrice, cityId: e.target.value })}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">City *</label>
+                <select
+                  value={newPrice.cityId}
+                  onChange={(e) => setNewPrice({ ...newPrice, cityId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  disabled={isLoading}
+                >
+                  <option value="">Select City</option>
+                  {availableCities.map((city) => (
+                    <option key={city.id} value={city.id}>
+                      {city.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Quantity Available *</label>
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="e.g., 5"
+                  value={newPrice.quantity}
+                  onChange={(e) =>
+                    setNewPrice({ ...newPrice, quantity: e.target.value })
+                  }
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Price per Day (₹) *</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="e.g., 1000"
+                  value={newPrice.pricePerDay}
+                  onChange={(e) =>
+                    setNewPrice({ ...newPrice, pricePerDay: e.target.value })
+                  }
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsAdding(false);
+                  setNewPrice({ cityId: "", pricePerDay: "", quantity: "1" });
+                }}
                 disabled={isLoading}
               >
-                <option value="">Select City</option>
-                {availableCities.map((city) => (
-                  <option key={city.id} value={city.id}>
-                    {city.name}
-                  </option>
-                ))}
-              </select>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="Price per day"
-                value={newPrice.pricePerDay}
-                onChange={(e) =>
-                  setNewPrice({ ...newPrice, pricePerDay: e.target.value })
-                }
-                disabled={isLoading}
-                className="flex-1"
-              />
+                Cancel
+              </Button>
               <Button
                 variant="primary"
                 size="sm"
                 onClick={handleAddPrice}
                 isLoading={isLoading}
               >
-                Add
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setIsAdding(false);
-                  setNewPrice({ cityId: "", pricePerDay: "" });
-                }}
-                disabled={isLoading}
-              >
-                Cancel
+                Add City Price
               </Button>
             </div>
           </div>
@@ -248,13 +272,22 @@ export function EquipmentRentalPricing({
           </div>
         ) : (
           <div className="space-y-3">
-            {rentalPrices.map((price) => (
+            {rentalPrices.map((price) => {
+              const available = price.quantity - price.quantityInUse;
+              const availabilityClass = available === 0 ? "text-red-600" : available < price.quantity * 0.3 ? "text-orange-600" : "text-green-600";
+
+              return (
               <div
                 key={price.id}
-                className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
               >
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">{price.cityName}</p>
+                  <div className="flex items-center gap-3 mb-1">
+                    <p className="font-medium text-gray-900">{price.cityName}</p>
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${availabilityClass} bg-opacity-10`}>
+                      {available}/{price.quantity} Available
+                    </span>
+                  </div>
                   {editingId === price.id ? (
                     <Input
                       type="number"
@@ -267,9 +300,14 @@ export function EquipmentRentalPricing({
                       className="mt-1 w-48"
                     />
                   ) : (
-                    <p className="text-sm text-gray-600">
-                      ₹{price.pricePerDay.toFixed(2)} per day
-                    </p>
+                    <div className="flex flex-col gap-1">
+                      <p className="text-sm font-medium text-gray-900">
+                        ₹{price.pricePerDay.toFixed(2)} per day
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        In Use: {price.quantityInUse} | Total Quantity: {price.quantity}
+                      </p>
+                    </div>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -320,7 +358,8 @@ export function EquipmentRentalPricing({
                   )}
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </CardContent>

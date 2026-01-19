@@ -91,6 +91,8 @@ export default async function EquipmentDetail({
     cityId: price.cityId,
     cityName: price.city.name,
     pricePerDay: price.pricePerDay,
+    quantity: price.quantity,
+    quantityInUse: price.quantityInUse,
   }));
 
   return (

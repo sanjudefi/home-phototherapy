@@ -42,6 +42,8 @@ export async function GET(
       cityId: price.cityId,
       cityName: price.city.name,
       pricePerDay: price.pricePerDay,
+      quantity: price.quantity,
+      quantityInUse: price.quantityInUse,
       createdAt: price.createdAt,
       updatedAt: price.updatedAt,
     }));
@@ -70,12 +72,12 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { cityId, pricePerDay } = body;
+    const { cityId, pricePerDay, quantity } = body;
 
     // Validate required fields
-    if (!cityId || pricePerDay === undefined) {
+    if (!cityId || pricePerDay === undefined || !quantity) {
       return NextResponse.json(
-        { error: "City ID and price per day are required" },
+        { error: "City ID, price per day, and quantity are required" },
         { status: 400 }
       );
     }
@@ -121,6 +123,8 @@ export async function POST(
         equipmentId: id,
         cityId,
         pricePerDay: parseFloat(pricePerDay),
+        quantity: parseInt(quantity),
+        quantityInUse: 0, // Start with 0 in use
       },
       include: {
         city: {
@@ -138,6 +142,8 @@ export async function POST(
       cityId: rentalPrice.cityId,
       cityName: rentalPrice.city.name,
       pricePerDay: rentalPrice.pricePerDay,
+      quantity: rentalPrice.quantity,
+      quantityInUse: rentalPrice.quantityInUse,
       createdAt: rentalPrice.createdAt,
       updatedAt: rentalPrice.updatedAt,
     };

@@ -107,15 +107,92 @@ export async function PATCH(
     }
 
     if (assignedEquipmentId !== undefined) {
-      updateData.assignedEquipmentId = assignedEquipmentId;
+      // Check if equipment is being assigned (not unassigned)
+      if (assignedEquipmentId && assignedEquipmentId !== lead.assignedEquipmentId) {
+        // Validate that equipment is available in this city
+        if (lead.city) {
+          const cityRecord = await prisma.city.findFirst({
+            where: { name: lead.city },
+          });
 
-      // Update equipment status if assigned
-      if (assignedEquipmentId) {
-        await prisma.equipment.update({
-          where: { id: assignedEquipmentId },
-          data: { status: "IN_USE" },
-        });
+          if (cityRecord) {
+            const rentalPrice = await prisma.equipmentRentalPrice.findUnique({
+              where: {
+                equipmentId_cityId: {
+                  equipmentId: assignedEquipmentId,
+                  cityId: cityRecord.id,
+                },
+              },
+            });
+
+            if (!rentalPrice) {
+              return NextResponse.json(
+                { error: `Equipment not available in ${lead.city}` },
+                { status: 400 }
+              );
+            }
+
+            // Check if quantity is available
+            if (rentalPrice.quantityInUse >= rentalPrice.quantity) {
+              return NextResponse.json(
+                { error: `No available units for this equipment in ${lead.city}` },
+                { status: 400 }
+              );
+            }
+
+            // Increment quantity in use
+            await prisma.equipmentRentalPrice.update({
+              where: {
+                equipmentId_cityId: {
+                  equipmentId: assignedEquipmentId,
+                  cityId: cityRecord.id,
+                },
+              },
+              data: {
+                quantityInUse: {
+                  increment: 1,
+                },
+              },
+            });
+          }
+        }
+
+        // If there was a previous equipment assigned, decrement its quantity in use
+        if (lead.assignedEquipmentId && lead.city) {
+          const cityRecord = await prisma.city.findFirst({
+            where: { name: lead.city },
+          });
+
+          if (cityRecord) {
+            const oldRentalPrice = await prisma.equipmentRentalPrice.findUnique({
+              where: {
+                equipmentId_cityId: {
+                  equipmentId: lead.assignedEquipmentId,
+                  cityId: cityRecord.id,
+                },
+              },
+            });
+
+            if (oldRentalPrice && oldRentalPrice.quantityInUse > 0) {
+              await prisma.equipmentRentalPrice.update({
+                where: {
+                  equipmentId_cityId: {
+                    equipmentId: lead.assignedEquipmentId,
+                    cityId: cityRecord.id,
+                  },
+                },
+                data: {
+                  quantityInUse: {
+                    decrement: 1,
+                  },
+                },
+              });
+            }
+          }
+        }
       }
+
+      updateData.assignedEquipmentId = assignedEquipmentId;
     }
 
     const updatedLead = await prisma.lead.update({
@@ -236,11 +313,20 @@ export async function PATCH(
         },
       });
 
-      // Set equipment back to available if returnable
-      if (lead.assignedEquipment.equipmentType === "RETURNABLE") {
-        await prisma.equipment.update({
-          where: { id: lead.assignedEquipment.id },
-          data: { status: "AVAILABLE" },
+      // Decrement quantity in use when lead is completed
+      if (rentalPrice.quantityInUse > 0) {
+        await prisma.equipmentRentalPrice.update({
+          where: {
+            equipmentId_cityId: {
+              equipmentId: lead.assignedEquipment.id,
+              cityId: city.id,
+            },
+          },
+          data: {
+            quantityInUse: {
+              decrement: 1,
+            },
+          },
         });
       }
     }
