@@ -86,6 +86,9 @@ model City {
   createdAt     DateTime    @default(now()) @map("created_at")
   updatedAt     DateTime    @updatedAt @map("updated_at")
 
+  // Relations
+  equipmentPrices EquipmentRentalPrice[]
+
   @@map("cities")
 }
 
@@ -165,6 +168,7 @@ model Lead {
   patientName       String      @map("patient_name")
   patientPhone      String      @map("patient_phone")
   patientLocation   String      @map("patient_location")
+  city              String?     // City where the lead is from
   doctorId          String      @map("doctor_id")
   status            LeadStatus  @default(NEW_LEAD)
   submissionDate    DateTime    @default(now()) @map("submission_date")
@@ -233,8 +237,6 @@ model Equipment {
   equipmentType     EquipmentType     @default(RETURNABLE) @map("equipment_type")
   status            EquipmentStatus   @default(AVAILABLE)
   currentLocationCity String?         @map("current_location_city")
-  purchaseDate      DateTime?         @map("purchase_date")
-  purchaseCost      Float?            @map("purchase_cost")
   notes             String?
   createdAt         DateTime          @default(now()) @map("created_at")
   updatedAt         DateTime          @updatedAt @map("updated_at")
@@ -243,8 +245,27 @@ model Equipment {
   assignedLeads     Lead[]
   rentals           Rental[]
   history           EquipmentHistory[]
+  rentalPrices      EquipmentRentalPrice[]
 
   @@map("equipment")
+}
+
+// Equipment Rental Prices - rental prices per city
+model EquipmentRentalPrice {
+  id          String    @id @default(cuid())
+  equipmentId String    @map("equipment_id")
+  cityId      String    @map("city_id")
+  pricePerDay Float     @map("price_per_day") // Rental price per day for this city
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  city        City      @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  // Ensure unique price per equipment per city
+  @@unique([equipmentId, cityId])
+  @@map("equipment_rental_prices")
 }
 
 // Equipment History - track equipment usage

@@ -99,8 +99,6 @@ export async function PATCH(
       serialNumber,
       modelNumber,
       manufacturer,
-      purchaseDate,
-      purchaseCost,
       currentLocationCity,
       status,
       notes,
@@ -134,8 +132,6 @@ export async function PATCH(
     if (serialNumber !== undefined) updateData.serialNumber = serialNumber;
     if (modelNumber !== undefined) updateData.modelNumber = modelNumber || null;
     if (manufacturer !== undefined) updateData.manufacturer = manufacturer || null;
-    if (purchaseDate !== undefined) updateData.purchaseDate = purchaseDate ? new Date(purchaseDate) : null;
-    if (purchaseCost !== undefined) updateData.purchaseCost = purchaseCost ? parseFloat(purchaseCost) : null;
     if (currentLocationCity !== undefined) updateData.currentLocationCity = currentLocationCity || null;
     if (status !== undefined) updateData.status = status as EquipmentStatus;
     if (notes !== undefined) updateData.notes = notes || null;

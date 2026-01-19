@@ -66,7 +66,6 @@ async function main() {
       equipmentType: 'RETURNABLE',
       status: 'AVAILABLE',
       currentLocationCity: 'Mumbai',
-      purchaseDate: new Date('2024-01-01'),
     },
   });
 
@@ -78,7 +77,6 @@ async function main() {
       equipmentType: 'RETURNABLE',
       status: 'AVAILABLE',
       currentLocationCity: 'Delhi',
-      purchaseDate: new Date('2024-01-01'),
     },
   });
 

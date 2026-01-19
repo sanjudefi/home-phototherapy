@@ -92,8 +92,6 @@ export async function POST(request: NextRequest) {
       serialNumber,
       modelNumber,
       manufacturer,
-      purchaseDate,
-      purchaseCost,
       currentLocationCity,
       notes,
     } = body;
@@ -124,8 +122,6 @@ export async function POST(request: NextRequest) {
         serialNumber,
         modelNumber: modelNumber || null,
         manufacturer: manufacturer || null,
-        purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
-        purchaseCost: purchaseCost ? parseFloat(purchaseCost) : null,
         currentLocationCity: currentLocationCity || null,
         status: "AVAILABLE",
         notes: notes || null,

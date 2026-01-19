@@ -13,8 +13,6 @@ interface EquipmentFormProps {
     serialNumber: string | null;
     modelNumber: string | null;
     manufacturer: string | null;
-    purchaseDate: Date | null;
-    purchaseCost: number | null;
     currentLocationCity: string | null;
     status: string;
     notes: string | null;
@@ -39,10 +37,6 @@ export function EquipmentForm({ equipment, isEdit = false }: EquipmentFormProps)
     serialNumber: equipment?.serialNumber || "",
     modelNumber: equipment?.modelNumber || "",
     manufacturer: equipment?.manufacturer || "",
-    purchaseDate: equipment?.purchaseDate
-      ? new Date(equipment.purchaseDate).toISOString().split("T")[0]
-      : "",
-    purchaseCost: equipment?.purchaseCost?.toString() || "",
     currentLocationCity: equipment?.currentLocationCity || "",
     status: equipment?.status || "AVAILABLE",
     notes: equipment?.notes || "",
@@ -71,11 +65,7 @@ export function EquipmentForm({ equipment, isEdit = false }: EquipmentFormProps)
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...formData,
-          purchaseCost: formData.purchaseCost ? parseFloat(formData.purchaseCost) : null,
-          purchaseDate: formData.purchaseDate || null,
-        }),
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
@@ -137,26 +127,6 @@ export function EquipmentForm({ equipment, isEdit = false }: EquipmentFormProps)
           label="Manufacturer"
           placeholder="e.g., GE Healthcare"
           value={formData.manufacturer}
-          onChange={handleChange}
-          disabled={isLoading}
-        />
-
-        <Input
-          name="purchaseDate"
-          label="Purchase Date"
-          type="date"
-          value={formData.purchaseDate}
-          onChange={handleChange}
-          disabled={isLoading}
-        />
-
-        <Input
-          name="purchaseCost"
-          label="Purchase Cost (₹)"
-          type="number"
-          step="0.01"
-          placeholder="e.g., 50000"
-          value={formData.purchaseCost}
           onChange={handleChange}
           disabled={isLoading}
         />

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { EquipmentRentalPricing } from "@/components/EquipmentRentalPricing";
 
 export default async function EquipmentDetail({
   params,
@@ -55,6 +56,21 @@ export default async function EquipmentDetail({
           startDatetime: "desc",
         },
       },
+      rentalPrices: {
+        include: {
+          city: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          city: {
+            name: "asc",
+          },
+        },
+      },
     },
   });
 
@@ -68,6 +84,14 @@ export default async function EquipmentDetail({
     currentLead: equipmentData.assignedLeads[0] || null,
     rentalHistory: equipmentData.rentals,
   };
+
+  // Transform rental prices for the component
+  const rentalPrices = equipmentData.rentalPrices.map((price) => ({
+    id: price.id,
+    cityId: price.cityId,
+    cityName: price.city.name,
+    pricePerDay: price.pricePerDay,
+  }));
 
   return (
     <div className="space-y-6">
@@ -117,18 +141,6 @@ export default async function EquipmentDetail({
                 <p className="font-medium">{equipment.currentLocationCity}</p>
               </div>
             )}
-            {equipment.purchaseDate && (
-              <div>
-                <label className="text-sm text-gray-500">Purchase Date</label>
-                <p className="font-medium">{formatDate(equipment.purchaseDate)}</p>
-              </div>
-            )}
-            {equipment.purchaseCost && (
-              <div>
-                <label className="text-sm text-gray-500">Purchase Cost</label>
-                <p className="font-medium">{formatCurrency(equipment.purchaseCost)}</p>
-              </div>
-            )}
           </div>
           {equipment.notes && (
             <div className="mt-4">
@@ -138,6 +150,9 @@ export default async function EquipmentDetail({
           )}
         </CardContent>
       </Card>
+
+      {/* Rental Prices by City */}
+      <EquipmentRentalPricing equipmentId={id} rentalPrices={rentalPrices} />
 
       {/* Current Assignment */}
       {equipment.currentLead && (
