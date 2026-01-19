@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
             name: true,
             email: true,
             createdAt: true,
+            status: true,
           },
         },
         _count: {
@@ -71,7 +72,13 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ doctors });
+    // Transform to include status at doctor level for easier access
+    const transformedDoctors = doctors.map(doctor => ({
+      ...doctor,
+      status: doctor.status || doctor.user.status,
+    }));
+
+    return NextResponse.json({ doctors: transformedDoctors });
   } catch (error) {
     console.error("Error fetching doctors:", error);
     return NextResponse.json(

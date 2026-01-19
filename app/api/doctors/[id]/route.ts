@@ -110,6 +110,7 @@ export async function PATCH(
       phone,
       city,
       notes,
+      status,
     } = body;
 
     const doctor = await prisma.doctor.findUnique({
@@ -124,11 +125,17 @@ export async function PATCH(
     }
 
     const updateData: any = {};
+    const userUpdateData: any = {};
 
     if (clinicName !== undefined) updateData.clinicName = clinicName || null;
     if (phone !== undefined) updateData.phone = phone || null;
     if (city !== undefined) updateData.city = city || null;
     if (notes !== undefined) updateData.notes = notes || null;
+
+    // Update status on the User model
+    if (status !== undefined) {
+      userUpdateData.status = status;
+    }
 
     // If commission rate is being changed, create a history record
     if (commissionRate !== undefined && commissionRate !== doctor.commissionRate) {
@@ -149,19 +156,50 @@ export async function PATCH(
       updateData.commissionRate = newRate;
     }
 
-    const updatedDoctor = await prisma.doctor.update({
-      where: { id },
-      data: updateData,
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            createdAt: true,
+    // Update both doctor and user in a transaction if needed
+    const updatedDoctor = await prisma.$transaction(async (tx) => {
+      // Update user status if provided
+      if (Object.keys(userUpdateData).length > 0) {
+        await tx.user.update({
+          where: { id: doctor.userId },
+          data: userUpdateData,
+        });
+      }
+
+      // Update doctor fields
+      if (Object.keys(updateData).length > 0) {
+        return await tx.doctor.update({
+          where: { id },
+          data: updateData,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                createdAt: true,
+                status: true,
+              },
+            },
+          },
+        });
+      }
+
+      // If only status was updated, just fetch the doctor
+      return await tx.doctor.findUnique({
+        where: { id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              createdAt: true,
+              status: true,
+            },
           },
         },
-      },
+      });
     });
 
     return NextResponse.json({
@@ -172,6 +210,71 @@ export async function PATCH(
     console.error("Error updating doctor:", error);
     return NextResponse.json(
       { error: "An error occurred while updating doctor" },
+      { status: 500 }
+    );
+  }
+}
+
+// Delete doctor
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const session = await auth();
+
+    if (!session || session.user.role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Unauthorized - Super Admin only" }, { status: 401 });
+    }
+
+    const doctor = await prisma.doctor.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            leads: true,
+          },
+        },
+      },
+    });
+
+    if (!doctor) {
+      return NextResponse.json({ error: "Doctor not found" }, { status: 404 });
+    }
+
+    // Check if doctor has any leads
+    if (doctor._count.leads > 0) {
+      return NextResponse.json(
+        {
+          error: `Cannot delete doctor with existing leads. This doctor has ${doctor._count.leads} lead(s).`,
+          canDelete: false,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Delete doctor and associated user in transaction
+    await prisma.$transaction(async (tx) => {
+      // Delete doctor (this will cascade delete commission history)
+      await tx.doctor.delete({
+        where: { id },
+      });
+
+      // Delete associated user
+      await tx.user.delete({
+        where: { id: doctor.userId },
+      });
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Doctor deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting doctor:", error);
+    return NextResponse.json(
+      { error: "An error occurred while deleting doctor" },
       { status: 500 }
     );
   }

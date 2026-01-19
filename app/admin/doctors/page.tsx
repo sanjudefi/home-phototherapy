@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
-import { formatDate } from "@/lib/utils";
+import { DoctorRow } from "@/components/DoctorRow";
 
 export default async function AdminDoctors({
   searchParams,
@@ -37,8 +37,14 @@ export default async function AdminDoctors({
     }
   );
 
+  if (!response.ok) {
+    console.error("Failed to fetch doctors:", response.status, response.statusText);
+  }
+
   const data = await response.json();
   const doctors = data.doctors || [];
+
+  console.log("Fetched doctors count:", doctors.length);
 
   // Calculate stats
   const stats = {
@@ -137,6 +143,9 @@ export default async function AdminDoctors({
                       Total Leads
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Joined
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -146,42 +155,7 @@ export default async function AdminDoctors({
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {doctors.map((doctor: any) => (
-                    <tr key={doctor.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="font-medium text-gray-900">{doctor.user.name}</div>
-                          <div className="text-sm text-gray-500">{doctor.user.email}</div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {doctor.clinicName || "-"}
-                        </div>
-                        {doctor.city && (
-                          <div className="text-xs text-gray-500">{doctor.city}</div>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className="text-sm font-medium text-green-600">
-                          {doctor.commissionRate}%
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-900">
-                          {doctor._count.leads}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(doctor.user.createdAt)}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <Link href={`/admin/doctors/${doctor.id}`}>
-                          <Button variant="outline" size="sm">
-                            View Details
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>
+                    <DoctorRow key={doctor.id} doctor={doctor} />
                   ))}
                 </tbody>
               </table>
