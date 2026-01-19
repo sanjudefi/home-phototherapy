@@ -1,14 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+
+interface City {
+  id: string;
+  name: string;
+}
 
 export function DoctorCreateForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [cities, setCities] = useState<City[]>([]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -21,7 +28,21 @@ export function DoctorCreateForm() {
     commissionRate: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fetch cities on component mount
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        const response = await fetch("/api/cities");
+        const data = await response.json();
+        setCities(data.cities || []);
+      } catch (error) {
+        console.error("Error fetching cities:", error);
+      }
+    };
+    fetchCities();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
@@ -145,13 +166,14 @@ export function DoctorCreateForm() {
           disabled={isLoading}
         />
 
-        <Input
+        <Select
           name="city"
           label="City"
-          placeholder="e.g., Mumbai"
+          options={cities.map(city => ({ value: city.name, label: city.name }))}
           value={formData.city}
           onChange={handleChange}
           disabled={isLoading}
+          required
         />
 
         <Input

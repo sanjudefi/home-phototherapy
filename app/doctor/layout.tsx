@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { Header } from "@/components/dashboard/Header";
+import { Sidebar } from "@/components/dashboard/Sidebar";
 
 export default async function DoctorLayout({
   children,
@@ -19,14 +19,19 @@ export default async function DoctorLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header user={{
+      <Sidebar user={{
         name: session.user.name || 'Doctor',
         email: session.user.email || '',
         role: session.user.role,
       }} />
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
+      {/* Main content with sidebar offset */}
+      <div className="lg:pl-64">
+        {/* Mobile header spacer */}
+        <div className="h-14 lg:hidden"></div>
+        <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
