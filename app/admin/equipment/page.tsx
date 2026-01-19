@@ -39,8 +39,14 @@ export default async function AdminEquipment({
     }
   );
 
+  if (!response.ok) {
+    console.error("Failed to fetch equipment:", response.status, response.statusText);
+  }
+
   const data = await response.json();
   const equipment = data.equipment || [];
+
+  console.log("Fetched equipment count:", equipment.length);
 
   // Calculate stats
   const stats = {
@@ -143,7 +149,7 @@ export default async function AdminEquipment({
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
-                  {item.model && (
+                  {item.modelNumber && (
                     <div className="flex justify-between">
                       <span className="text-gray-500">Model:</span>
                       <span className="font-medium">{item.modelNumber}</span>
@@ -155,7 +161,7 @@ export default async function AdminEquipment({
                       <span className="font-medium">{item.manufacturer}</span>
                     </div>
                   )}
-                  {item.currentCity && (
+                  {item.currentLocationCity && (
                     <div className="flex justify-between">
                       <span className="text-gray-500">Location:</span>
                       <span className="font-medium">{item.currentLocationCity}</span>
@@ -163,7 +169,7 @@ export default async function AdminEquipment({
                   )}
                   <div className="flex justify-between">
                     <span className="text-gray-500">Total Rentals:</span>
-                    <span className="font-medium">{item._count.rentalHistory}</span>
+                    <span className="font-medium">{item._count?.rentals || 0}</span>
                   </div>
                   {item.currentLead && (
                     <div className="mt-3 p-2 bg-blue-50 rounded">

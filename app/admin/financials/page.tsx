@@ -38,9 +38,15 @@ export default async function AdminFinancials({
     }
   );
 
+  if (!response.ok) {
+    console.error("Failed to fetch financials:", response.status, response.statusText);
+  }
+
   const data = await response.json();
   const financials = data.financials || [];
   const totals = data.totals || { totalRevenue: 0, totalExpenses: 0, totalCommission: 0, totalProfit: 0 };
+
+  console.log("Fetched financials count:", financials.length);
 
   const statusOptions = [
     { value: "ALL", label: "All Status" },

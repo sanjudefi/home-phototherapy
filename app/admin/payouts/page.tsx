@@ -40,9 +40,15 @@ export default async function AdminPayouts({
     }
   );
 
+  if (!response.ok) {
+    console.error("Failed to fetch payouts:", response.status, response.statusText);
+  }
+
   const data = await response.json();
   const payouts = data.payouts || [];
   const totals = data.totals || { totalAmount: 0, pending: 0, paid: 0 };
+
+  console.log("Fetched payouts count:", payouts.length);
 
   const statusOptions = [
     { value: "ALL", label: "All Status" },
