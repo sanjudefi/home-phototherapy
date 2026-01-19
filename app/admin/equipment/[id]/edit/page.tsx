@@ -1,5 +1,8 @@
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { EquipmentForm } from "@/components/forms/EquipmentForm";
 
@@ -16,37 +19,27 @@ export default async function EditEquipment({
 
   const { id } = await params;
 
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("authjs.session-token")?.value;
+  // Fetch equipment directly from database
+  const equipment = await prisma.equipment.findUnique({
+    where: { id },
+  });
 
-  const response = await fetch(
-    `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/equipment/${id}`,
-    {
-      headers: {
-        Cookie: `authjs.session-token=${sessionToken}`,
-      },
-      cache: "no-store",
-    }
-  );
-
-  if (!response.ok) {
+  if (!equipment) {
     redirect("/admin/equipment");
   }
 
-  const data = await response.json();
-  const equipment = data.equipment;
-
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Edit Equipment</h1>
-        <p className="text-gray-500 mt-1">{equipment.name} - {equipment.serialNumber}</p>
+        <Link href={`/admin/equipment/${id}`}>
+          <Button variant="outline">Back to Details</Button>
+        </Link>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Equipment Information</CardTitle>
+          <CardTitle>{equipment.name}</CardTitle>
         </CardHeader>
         <CardContent>
           <EquipmentForm equipment={equipment} isEdit={true} />

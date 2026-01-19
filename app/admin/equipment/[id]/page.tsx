@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -19,26 +20,54 @@ export default async function EquipmentDetail({
 
   const { id } = await params;
 
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("authjs.session-token")?.value;
-
-  const response = await fetch(
-    `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/equipment/${id}`,
-    {
-      headers: {
-        Cookie: `authjs.session-token=${sessionToken}`,
+  // Fetch equipment directly from database
+  const equipmentData = await prisma.equipment.findUnique({
+    where: { id },
+    include: {
+      assignedLeads: {
+        where: {
+          status: {
+            in: ["EQUIPMENT_SHIPPED", "ACTIVE_RENTAL"],
+          },
+        },
+        include: {
+          doctor: {
+            include: {
+              user: true,
+            },
+          },
+        },
+        take: 1,
       },
-      cache: "no-store",
-    }
-  );
+      rentals: {
+        include: {
+          lead: {
+            include: {
+              doctor: {
+                include: {
+                  user: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          startDatetime: "desc",
+        },
+      },
+    },
+  });
 
-  if (!response.ok) {
+  if (!equipmentData) {
     redirect("/admin/equipment");
   }
 
-  const data = await response.json();
-  const equipment = data.equipment;
+  // Transform for easier consumption
+  const equipment = {
+    ...equipmentData,
+    currentLead: equipmentData.assignedLeads[0] || null,
+    rentalHistory: equipmentData.rentals,
+  };
 
   return (
     <div className="space-y-6">

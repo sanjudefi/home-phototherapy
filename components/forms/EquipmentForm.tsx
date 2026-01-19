@@ -9,8 +9,8 @@ import { Select } from "@/components/ui/Select";
 interface EquipmentFormProps {
   equipment?: {
     id: string;
-    name: string;
-    serialNumber: string;
+    name: string | null;
+    serialNumber: string | null;
     modelNumber: string | null;
     manufacturer: string | null;
     purchaseDate: Date | null;

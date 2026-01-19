@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -20,26 +21,67 @@ export default async function DoctorDetail({
 
   const { id } = await params;
 
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("authjs.session-token")?.value;
-
-  const response = await fetch(
-    `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/doctors/${id}`,
-    {
-      headers: {
-        Cookie: `authjs.session-token=${sessionToken}`,
+  // Fetch doctor directly from database
+  const doctorData = await prisma.doctor.findUnique({
+    where: { id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          createdAt: true,
+        },
       },
-      cache: "no-store",
-    }
-  );
+      leads: {
+        include: {
+          financial: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      },
+      commissionHistory: {
+        orderBy: {
+          effectiveDate: "desc",
+        },
+        take: 10,
+      },
+    },
+  });
 
-  if (!response.ok) {
+  if (!doctorData) {
     redirect("/admin/doctors");
   }
 
-  const data = await response.json();
-  const doctor = data.doctor;
+  // Calculate statistics
+  const totalLeads = doctorData.leads.length;
+  const completedLeads = doctorData.leads.filter(
+    (lead) => lead.status === "COMPLETED"
+  ).length;
+  const activeLeads = doctorData.leads.filter(
+    (lead) => lead.status === "ACTIVE_RENTAL" || lead.status === "EQUIPMENT_SHIPPED"
+  ).length;
+
+  // Calculate total earnings
+  const totalEarnings = doctorData.leads.reduce((sum, lead) => {
+    if (lead.financial && lead.financial.doctorCommission) {
+      return sum + lead.financial.doctorCommission;
+    }
+    return sum;
+  }, 0);
+
+  const stats = {
+    totalLeads,
+    completedLeads,
+    activeLeads,
+    totalEarnings,
+  };
+
+  const doctor = {
+    ...doctorData,
+    stats,
+  };
 
   return (
     <div className="space-y-6">

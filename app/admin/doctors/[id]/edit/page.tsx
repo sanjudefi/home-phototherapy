@@ -1,8 +1,12 @@
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { Button } from "@/components/ui/Button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { DoctorEditForm } from "@/components/forms/DoctorEditForm";
 
-export default async function DoctorEditPage({
+export default async function EditDoctor({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -15,34 +19,42 @@ export default async function DoctorEditPage({
 
   const { id } = await params;
 
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("authjs.session-token")?.value;
-
-  const response = await fetch(
-    `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/doctors/${id}`,
-    {
-      headers: {
-        Cookie: `authjs.session-token=${sessionToken}`,
+  // Fetch doctor directly from database
+  const doctor = await prisma.doctor.findUnique({
+    where: { id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          createdAt: true,
+        },
       },
-      cache: "no-store",
-    }
-  );
+    },
+  });
 
-  if (!response.ok) {
+  if (!doctor) {
     redirect("/admin/doctors");
   }
 
-  const data = await response.json();
-  const doctor = data.doctor;
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Edit Doctor</h1>
+        <Link href={`/admin/doctors/${id}`}>
+          <Button variant="outline">Back to Details</Button>
+        </Link>
       </div>
 
-      <DoctorEditForm doctor={doctor} />
+      <Card>
+        <CardHeader>
+          <CardTitle>{doctor.user.name}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DoctorEditForm doctor={doctor} />
+        </CardContent>
+      </Card>
     </div>
   );
 }
