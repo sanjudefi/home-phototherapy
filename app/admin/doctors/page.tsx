@@ -57,6 +57,9 @@ export default async function AdminDoctors({
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Doctor Management</h1>
+        <Link href="/admin/doctors/new">
+          <Button variant="primary">+ Add Doctor</Button>
+        </Link>
       </div>
 
       {/* Stats Cards */}
