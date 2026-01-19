@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -21,34 +22,42 @@ export default async function AdminPayouts({
   const statusFilter = params.status || "ALL";
   const doctorFilter = params.doctorId || "ALL";
 
-  // Build query string
-  const queryParams = new URLSearchParams();
-  if (statusFilter !== "ALL") queryParams.set("status", statusFilter);
-  if (doctorFilter !== "ALL") queryParams.set("doctorId", doctorFilter);
+  // Fetch payouts directly from database
+  const where: any = {};
 
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("authjs.session-token")?.value;
-
-  const response = await fetch(
-    `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/payouts?${queryParams.toString()}`,
-    {
-      headers: {
-        Cookie: `authjs.session-token=${sessionToken}`,
-      },
-      cache: "no-store",
-    }
-  );
-
-  if (!response.ok) {
-    console.error("Failed to fetch payouts:", response.status, response.statusText);
+  if (statusFilter !== "ALL") {
+    where.status = statusFilter;
   }
 
-  const data = await response.json();
-  const payouts = data.payouts || [];
-  const totals = data.totals || { totalAmount: 0, pending: 0, paid: 0 };
+  if (doctorFilter !== "ALL") {
+    where.doctorId = doctorFilter;
+  }
 
-  console.log("Fetched payouts count:", payouts.length);
+  const payouts = await prisma.payout.findMany({
+    where,
+    include: {
+      doctor: {
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  // Calculate totals
+  const totals = {
+    totalAmount: payouts.reduce((sum, p) => sum + p.amount, 0),
+    pending: payouts.filter(p => p.status === "PENDING").reduce((sum, p) => sum + p.amount, 0),
+    paid: payouts.filter(p => p.status === "PAID").reduce((sum, p) => sum + p.amount, 0),
+  };
 
   const statusOptions = [
     { value: "ALL", label: "All Status" },

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -20,33 +21,55 @@ export default async function AdminEquipment({
   const statusFilter = params.status || "ALL";
   const cityFilter = params.city || "ALL";
 
-  // Build query string
-  const queryParams = new URLSearchParams();
-  if (statusFilter !== "ALL") queryParams.set("status", statusFilter);
-  if (cityFilter !== "ALL") queryParams.set("city", cityFilter);
+  // Fetch equipment directly from database
+  const where: any = {};
 
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("authjs.session-token")?.value;
-
-  const response = await fetch(
-    `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/equipment?${queryParams.toString()}`,
-    {
-      headers: {
-        Cookie: `authjs.session-token=${sessionToken}`,
-      },
-      cache: "no-store",
-    }
-  );
-
-  if (!response.ok) {
-    console.error("Failed to fetch equipment:", response.status, response.statusText);
+  if (statusFilter !== "ALL") {
+    where.status = statusFilter;
   }
 
-  const data = await response.json();
-  const equipment = data.equipment || [];
+  if (cityFilter !== "ALL") {
+    where.currentLocationCity = cityFilter;
+  }
 
-  console.log("Fetched equipment count:", equipment.length);
+  const equipmentData = await prisma.equipment.findMany({
+    where,
+    include: {
+      _count: {
+        select: {
+          rentals: true,
+        },
+      },
+      assignedLeads: {
+        where: {
+          status: {
+            in: ["EQUIPMENT_SHIPPED", "ACTIVE_RENTAL"],
+          },
+        },
+        include: {
+          doctor: {
+            include: {
+              user: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        take: 1,
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  // Transform assignedLeads array to currentLead for easier consumption
+  const equipment = equipmentData.map((eq) => ({
+    ...eq,
+    currentLead: eq.assignedLeads[0] || null,
+  }));
 
   // Calculate stats
   const stats = {

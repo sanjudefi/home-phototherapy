@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -20,33 +21,43 @@ export default async function AdminFinancials({
   const params = await searchParams;
   const statusFilter = params.status || "ALL";
 
-  // Build query string
-  const queryParams = new URLSearchParams();
-  if (statusFilter !== "ALL") queryParams.set("status", statusFilter);
+  // Fetch financials directly from database
+  const where: any = {};
 
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("authjs.session-token")?.value;
-
-  const response = await fetch(
-    `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/financials?${queryParams.toString()}`,
-    {
-      headers: {
-        Cookie: `authjs.session-token=${sessionToken}`,
-      },
-      cache: "no-store",
-    }
-  );
-
-  if (!response.ok) {
-    console.error("Failed to fetch financials:", response.status, response.statusText);
+  if (statusFilter !== "ALL") {
+    where.paymentStatus = statusFilter;
   }
 
-  const data = await response.json();
-  const financials = data.financials || [];
-  const totals = data.totals || { totalRevenue: 0, totalExpenses: 0, totalCommission: 0, totalProfit: 0 };
+  const financials = await prisma.financial.findMany({
+    where,
+    include: {
+      lead: {
+        include: {
+          doctor: {
+            include: {
+              user: {
+                select: {
+                  name: true,
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
 
-  console.log("Fetched financials count:", financials.length);
+  // Calculate totals
+  const totals = {
+    totalRevenue: financials.reduce((sum, f) => sum + f.rentalAmount, 0),
+    totalExpenses: financials.reduce((sum, f) => sum + f.shippingCost + f.gstAmount, 0),
+    totalCommission: financials.reduce((sum, f) => sum + f.doctorCommission, 0),
+    totalProfit: financials.reduce((sum, f) => sum + f.netProfit, 0),
+  };
 
   const statusOptions = [
     { value: "ALL", label: "All Status" },

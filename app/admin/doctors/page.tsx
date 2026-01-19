@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { DoctorRow } from "@/components/DoctorRow";
@@ -19,37 +20,69 @@ export default async function AdminDoctors({
   const params = await searchParams;
   const searchQuery = params.search || "";
 
-  // Build query string
-  const queryParams = new URLSearchParams();
-  if (searchQuery) queryParams.set("search", searchQuery);
+  // Fetch doctors directly from database
+  const where: any = {};
 
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("authjs.session-token")?.value;
-
-  const response = await fetch(
-    `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/doctors?${queryParams.toString()}`,
-    {
-      headers: {
-        Cookie: `authjs.session-token=${sessionToken}`,
+  if (searchQuery) {
+    where.OR = [
+      {
+        user: {
+          name: {
+            contains: searchQuery,
+            mode: "insensitive",
+          },
+        },
       },
-      cache: "no-store",
-    }
-  );
-
-  if (!response.ok) {
-    console.error("Failed to fetch doctors:", response.status, response.statusText);
+      {
+        user: {
+          email: {
+            contains: searchQuery,
+            mode: "insensitive",
+          },
+        },
+      },
+      {
+        clinicName: {
+          contains: searchQuery,
+          mode: "insensitive",
+        },
+      },
+    ];
   }
 
-  const data = await response.json();
-  const doctors = data.doctors || [];
+  const doctors = await prisma.doctor.findMany({
+    where,
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          createdAt: true,
+          status: true,
+        },
+      },
+      _count: {
+        select: {
+          leads: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
 
-  console.log("Fetched doctors count:", doctors.length);
+  // Transform to include status at doctor level
+  const transformedDoctors = doctors.map(doctor => ({
+    ...doctor,
+    status: doctor.status || doctor.user.status,
+  }));
 
   // Calculate stats
   const stats = {
-    total: doctors.length,
-    activeThisMonth: doctors.filter((d: any) => {
+    total: transformedDoctors.length,
+    activeThisMonth: transformedDoctors.filter((d: any) => {
       const createdAt = new Date(d.createdAt);
       const now = new Date();
       return (
@@ -110,7 +143,7 @@ export default async function AdminDoctors({
       </Card>
 
       {/* Doctors List */}
-      {doctors.length === 0 ? (
+      {transformedDoctors.length === 0 ? (
         <Card>
           <CardContent className="pt-6">
             <div className="text-center py-12">
@@ -123,7 +156,7 @@ export default async function AdminDoctors({
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>All Doctors ({doctors.length})</CardTitle>
+            <CardTitle>All Doctors ({transformedDoctors.length})</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -154,7 +187,7 @@ export default async function AdminDoctors({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {doctors.map((doctor: any) => (
+                  {transformedDoctors.map((doctor: any) => (
                     <DoctorRow key={doctor.id} doctor={doctor} />
                   ))}
                 </tbody>
