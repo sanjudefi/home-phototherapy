@@ -93,6 +93,7 @@ export function PayoutCreateForm({ doctors }: PayoutCreateFormProps) {
       <Select
         name="doctorId"
         label="Select Doctor"
+        placeholder="-- Select a doctor --"
         options={doctorOptions}
         value={formData.doctorId}
         onChange={handleChange}

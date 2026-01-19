@@ -169,6 +169,7 @@ export function DoctorCreateForm() {
         <Select
           name="city"
           label="City"
+          placeholder="-- Select a city --"
           options={cities.map(city => ({ value: city.name, label: city.name }))}
           value={formData.city}
           onChange={handleChange}
