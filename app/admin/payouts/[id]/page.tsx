@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -20,26 +21,34 @@ export default async function PayoutDetail({
 
   const { id } = await params;
 
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("authjs.session-token")?.value;
-
-  const response = await fetch(
-    `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/payouts/${id}`,
-    {
-      headers: {
-        Cookie: `authjs.session-token=${sessionToken}`,
+  // Fetch payout directly from database
+  const payout = await prisma.payout.findUnique({
+    where: { id },
+    include: {
+      doctor: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
       },
-      cache: "no-store",
-    }
-  );
+      processedBy: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
 
-  if (!response.ok) {
+  if (!payout) {
     redirect("/admin/payouts");
   }
-
-  const data = await response.json();
-  const payout = data.payout;
 
   return (
     <div className="space-y-6">
